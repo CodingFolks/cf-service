@@ -1,41 +1,32 @@
 const express = require('express');
 const cors = require('cors');
-const { query } = require('./db');
+const userRoutes = require('./routes/users');
+const { router: authRoutes } = require('./routes/auth');
+const { initDB } = require('./db');
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://frontend:3000'],
+    credentials: true
+}));
+app.use('/api/auth', authRoutes);
 
-app.get('/api/users', async (req, res) => {
+app.use('/api/users', userRoutes);
+
+const startServer = async () => {
     try {
-        const result = await query('SELECT * FROM users');
-        res.json(result.rows);
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Internal Server Error');
+        await initDB();
+
+        app.listen(port, '0.0.0.0', () => {
+            console.log(`Backend server is running on http://localhost:${port}`);
+        });
+    } catch (err) {
+        console.error('Failed to start server:', err);
+        process.exit(1);
     }
-});
+};
 
-app.post('/api/users', async (req, res) => {
-    const { name } = req.body;
-
-    if (!name) {
-        return res.status(400).send('Name is required');
-    }
-
-    try {
-        const result = await query('INSERT INTO users (name) VALUES ($1) RETURNING *', [name]);
-        const newUser = result.rows[0];
-
-        res.status(201).json(newUser);
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Internal Server Error');
-    }
-});
-
-app.listen(port, '0.0.0.0', () => {
-    console.log(`Backend server is running on http://localhost:${port}`);
-});
+startServer();

@@ -6,7 +6,8 @@ BACKEND_SERVICE = backend
 DC = docker-compose
 
 start:
-	$(DC) up --build -d
+	$(DC) up --build
+
 
 stop:
 	$(DC) down
