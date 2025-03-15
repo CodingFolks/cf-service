@@ -10,6 +10,9 @@ services:
       - backend
     environment:
       - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:5000
+    networks:
+      - app-network
 
   backend:
     build:
@@ -17,21 +20,35 @@ services:
     ports:
       - "5000:5000"
     environment:
-      DB_USER: yourusername
-      DB_PASSWORD: yourpassword
-      DB_NAME: yourdatabase
+      DB_USER: dbuser
+      DB_PASSWORD: dbpassword
+      DB_NAME: usersdb
       DB_HOST: postgres
       DB_PORT: 5432
+      JWT_SECRET: your_secure_jwt_secret
     depends_on:
       - postgres
+    networks:
+      - app-network
+    restart: on-failure
 
   postgres:
-    image: postgres:latest
+    image: postgres:14
     environment:
-      POSTGRES_USER: yourusername
-      POSTGRES_PASSWORD: yourpassword
-      POSTGRES_DB: yourdatabase
+      - POSTGRES_USER=dbuser
+      - POSTGRES_PASSWORD=dbpassword
+      - POSTGRES_DB=usersdb
     ports:
       - "5432:5432"
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
