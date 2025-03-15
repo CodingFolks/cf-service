@@ -8,6 +8,7 @@ DC = docker-compose
 start:
 	$(DC) up --build
 
+
 stop:
 	$(DC) down
 
