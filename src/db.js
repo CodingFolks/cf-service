@@ -17,7 +17,7 @@ const initDB = async (retries = 5, delay = 3000) => {
         try {
             const client = await pool.connect();
             try {
-                console.log('Database connected successfully');
+                console.log('Database connected successfully!');
 
                 await client.query(`
           CREATE TABLE IF NOT EXISTS users (
