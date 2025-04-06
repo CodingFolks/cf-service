@@ -1,0 +1,105 @@
+name: Backend CI/CD
+on:
+  push:
+    branches: [ github_actions, main ]
+  pull_request:
+    branches: [ github_actions, main ]
+  workflow_dispatch:
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      
+      - name: Build and push Backend Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: 'placeholder'
+          if_key_exists: replace
+      
+      - name: Setup known hosts
+        run: ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+      
+      - name: Create deployment directory
+        run: ssh root@${{ secrets.SERVER_IP }} "mkdir -p /root/kareem"
+      
+      - name: Create docker-compose file for full stack
+        run: |
+          cat > docker-compose.yml << 'EOL'
+          version: '3.8'
+          services:
+            frontend:
+              container_name: frontend
+              image: ${{ secrets.DOCKER_HUB_USERNAME }}/frontent:latest
+              restart: always
+              ports:
+                - "9000:3000"
+              environment:
+                - NODE_ENV=production
+                - REACT_APP_API_URL=http://backend:5000
+              networks:
+                - app-network
+              
+            backend:
+              container_name: backend
+              image: ${{ secrets.DOCKER_HUB_USERNAME }}/backend:latest
+              restart: always
+              ports:
+                - "5000:5000"
+              environment:
+                - DB_USER=dbuser
+                - DB_PASSWORD=dbpassword
+                - DB_NAME=usersdb
+                - DB_HOST=postgres
+                - DB_PORT=5432
+                - JWT_SECRET=${{ secrets.JWT_SECRET }}
+              depends_on:
+                - postgres
+              networks:
+                - app-network
+          
+            postgres:
+              container_name: postgres
+              image: postgres:14
+              restart: always
+              environment:
+                - POSTGRES_USER=dbuser
+                - POSTGRES_PASSWORD=dbpassword
+                - POSTGRES_DB=usersdb
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+              networks:
+                - app-network
+          
+          networks:
+            app-network:
+              driver: bridge
+          
+          volumes:
+            postgres_data:
+          EOL
+      
+      - name: Deploy to server
+        run: |
+          scp docker-compose.yml root@${{ secrets.SERVER_IP }}:/root/kareem/
+          ssh root@${{ secrets.SERVER_IP }} "cd /root/kareem && docker rm -f frontend backend postgres || true && docker compose up -d --force-recreate"
