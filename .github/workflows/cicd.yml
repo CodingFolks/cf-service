@@ -42,6 +42,7 @@ jobs:
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/frontent:latest
           build-args: |
             BUILDKIT_INLINE_CACHE=0
+          no-cache: true
       
       - name: Build and push Backend Docker image
         uses: docker/build-push-action@v4
