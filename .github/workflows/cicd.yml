@@ -80,7 +80,7 @@ jobs:
               image: ${{ secrets.DOCKER_HUB_USERNAME }}/frontend:latest
               restart: always
               ports:
-                - "9000:9000"
+                - "9000:3000"
               networks:
                 - app-network
               
